@@ -1,0 +1,52 @@
+name: Publish
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-qemu-action@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+
+      - run: make patch
+      - run: make install
+
+      - run: dagger do export
+        env:
+          DAGGER_LOG_FORMAT: plain
+          GH_USERNAME: ${{ github.actor }}
+          GH_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GIT_SHA: ${{ github.sha }}
+          GIT_REF: ${{ github.ref }}
+
+      - if: ${{ github.ref == 'refs/heads/main' }}
+        run: dagger do ship
+        env:
+          DAGGER_LOG_FORMAT: plain
+          GH_USERNAME: ${{ github.actor }}
+          GH_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GIT_SHA: ${{ github.sha }}
+          GIT_REF: ${{ github.ref }}
+
+      - if: ${{ github.ref == 'refs/heads/main' }}
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          automatic_release_tag: "latest"
+          prerelease: true
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          files: |
+            build/output/*.tar.gz
