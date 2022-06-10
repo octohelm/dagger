@@ -1,0 +1,3 @@
+[submodule "dagger"]
+	path = dagger
+	url = https://github.com/dagger/dagger
