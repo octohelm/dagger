@@ -1,5 +1,7 @@
-dep:
+reset:
 	git submodule foreach -q --recursive 'git add . && git reset --hard'
+
+dep: reset
 	git submodule update --init
 	git submodule update --force --remote
 
