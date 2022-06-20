@@ -4,121 +4,84 @@ import (
 	"strings"
 
 	"dagger.io/dagger"
-	"dagger.io/dagger/core"
-	"universe.dagger.io/docker"
 
-	"github.com/innoai-tech/runtime/cuepkg/tool"
 	"github.com/innoai-tech/runtime/cuepkg/golang"
 	"github.com/innoai-tech/runtime/cuepkg/debian"
 )
 
-dagger.#Plan & {
-	client: {
-		env: {
-			VERSION: string | *"v0.3.0"
-			GIT_SHA: string | *"152749e64aad80297f4bcb29e565426144383f81"
-			GIT_REF: string | *""
+dagger.#Plan
 
-			GOPROXY:   string | *""
-			GOPRIVATE: string | *""
-			GOSUMDB:   string | *""
+client: env: {
+	VERSION: string | *"v0.3.0"
+	GIT_SHA: string | *"152749e64aad80297f4bcb29e565426144383f81"
+	GIT_REF: string | *""
 
-			GH_USERNAME: string | *""
-			GH_PASSWORD: dagger.#Secret
+	GOPROXY:   string | *""
+	GOPRIVATE: string | *""
+	GOSUMDB:   string | *""
 
-			LINUX_MIRROR: string | *""
-		}
+	GH_USERNAME: string | *""
+	GH_PASSWORD: dagger.#Secret
 
-		filesystem: "build/output": write: contents: actions.export.output
+	LINUX_MIRROR:                  string | *""
+	CONTAINER_REGISTRY_PULL_PROXY: string | *""
+}
+
+client: filesystem: "build/output": write: contents: actions.go.archive.output
+
+mirror: {
+	linux: client.env.LINUX_MIRROR
+	pull:  client.env.CONTAINER_REGISTRY_PULL_PROXY
+}
+
+actions: go: golang.#Project & {
+	source: {
+		path: "./dagger"
 	}
 
-	actions: {
-		version: "\(client.env.VERSION)"
+	version:  "\(client.env.VERSION)"
+	revision: "\(client.env.GIT_SHA)"
 
-		src: core.#Source & {
-			path: "./dagger"
-		}
+	goos: ["linux", "darwin"]
+	goarch: ["amd64", "arm64"]
+	main: "./cmd/dagger"
+	ldflags: [
+		"-s -w",
+		"-X \(go.module)/version.Version=\(go.version)-\(strings.SliceRunes(go.revision, 0, 7))",
+		"-X \(go.module)/version.Revision=\(go.revision)",
+	]
+	env: {
+		GOFLAGS:   "-buildvcs=false"
+		GOPROXY:   client.env.GOPROXY
+		GOPRIVATE: client.env.GOPRIVATE
+		GOSUMDB:   client.env.GOSUMDB
+	}
 
-		info: golang.#Info & {
-			"source": src.output
-		}
+	build: {
+		image: "mirror": mirror
+	}
 
-		build: golang.#Build & {
-			source: src.output
-			go: {
-				os: ["linux", "darwin"]
-				arch: ["amd64", "arm64"]
-				package: "./cmd/dagger"
-				ldflags: [
-					"-s -w",
-					"-X \(info.module)/version.Version=\(version)-\(strings.SliceRunes(client.env.GIT_SHA, 0, 7))",
-					"-X \(info.module)/version.Revision=\(client.env.GIT_SHA)",
-				]
-			}
-			run: env: {
-				GOFLAGS:   "-buildvcs=false"
-				GOPROXY:   client.env.GOPROXY
-				GOPRIVATE: client.env.GOPRIVATE
-				GOSUMDB:   client.env.GOSUMDB
-			}
-			image: mirror: client.env.LINUX_MIRROR
-		}
+	ship: {
+		name: "ghcr.io/octohelm/dagger"
+		tag:  version
 
-		export: tool.#Export & {
-			archive: true
-			directories: {
-				for _os in build.go.os for _arch in build.go.arch {
-					"\(build.go.name)_\(_os)_\(_arch)": build["\(_os)/\(_arch)"].output
-				}
-			}
-		}
-
-		images: {
-			for arch in build.go.arch {
-				"linux/\(arch)": docker.#Build & {
-					steps: [
-						debian.#Build & {
-							platform: "linux/\(arch)"
-							mirror:   client.env.LINUX_MIRROR
-							packages: {
-								"ca-certificates": _
-								"git":             _
-							}
-						},
-						docker.#Copy & {
-							contents: build["linux/\(arch)"].output
-							source:   "/dagger"
-							dest:     "/bin/dagger"
-						},
-						docker.#Set & {
-							config: {
-								label: {
-									"org.opencontainers.image.source":   "https://github.com/octohelm/dagger"
-									"org.opencontainers.image.revision": "\(client.env.GIT_SHA)"
-								}
-								workdir: "/"
-							}
-						},
-					]
-				}
-			}
-		}
-
-		ship: {
-			_push: docker.#Push & {
-				dest: "\("ghcr.io/octohelm/dagger"):\(version)"
-				"images": {
-					for p, image in images {
-						"\(p)": image.output
+		image: {
+			source:   "docker.io/library/debian:bullseye-slim"
+			"mirror": mirror
+			steps: [
+				debian.#InstallPackage & {
+					packages: {
+						"ca-certificates": _
+						"git":             _
 					}
-				}
-				auth: {
-					username: client.env.GH_USERNAME
-					secret:   client.env.GH_PASSWORD
-				}
-			}
+					"mirror": mirror
+				},
+			]
+		}
 
-			result: _push.result
+		push: auth: {
+			username: client.env.GH_USERNAME
+			secret:   client.env.GH_PASSWORD
 		}
 	}
 }
