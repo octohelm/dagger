@@ -10,10 +10,3 @@ patch: dep
 
 install: patch
 	cd ./dagger && go install -ldflags '-X go.dagger.io/dagger/version.Version=v0.3.0' ./cmd/dagger
-
-do:
-	dagger do export
-	dagger do ship
-
-debug:
-	tar -tf ./build/output/dagger_darwin_arm64.tar.gz

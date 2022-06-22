@@ -29,12 +29,17 @@ client: env: {
 
 client: filesystem: "build/output": write: contents: actions.go.archive.output
 
-mirror: {
-	linux: client.env.LINUX_MIRROR
-	pull:  client.env.CONTAINER_REGISTRY_PULL_PROXY
-}
-
 actions: go: golang.#Project & {
+	mirror: {
+		linux: client.env.LINUX_MIRROR
+		pull:  client.env.CONTAINER_REGISTRY_PULL_PROXY
+	}
+
+	auths: "ghcr.io": {
+		username: client.env.GH_USERNAME
+		secret:   client.env.GH_PASSWORD
+	}
+
 	source: {
 		path: "./dagger"
 	}
@@ -50,6 +55,7 @@ actions: go: golang.#Project & {
 		"-X \(go.module)/version.Version=\(go.version)-\(strings.SliceRunes(go.revision, 0, 7))",
 		"-X \(go.module)/version.Revision=\(go.revision)",
 	]
+
 	env: {
 		GOFLAGS:   "-buildvcs=false"
 		GOPROXY:   client.env.GOPROXY
@@ -65,23 +71,14 @@ actions: go: golang.#Project & {
 		name: "ghcr.io/octohelm/dagger"
 		tag:  version
 
-		image: {
-			source:   "docker.io/library/debian:bullseye-slim"
-			"mirror": mirror
-			steps: [
-				debian.#InstallPackage & {
-					packages: {
-						"ca-certificates": _
-						"git":             _
-					}
-					"mirror": mirror
-				},
-			]
-		}
-
-		push: auth: {
-			username: client.env.GH_USERNAME
-			secret:   client.env.GH_PASSWORD
-		}
+		from: "docker.io/library/debian:bullseye-slim"
+		steps: [
+			debian.#InstallPackage & {
+				packages: {
+					"ca-certificates": _
+					"git":             _
+				}
+			},
+		]
 	}
 }
