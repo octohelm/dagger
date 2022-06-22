@@ -5,6 +5,12 @@ Custom dagger with custom features
 * cue mod
 * much-arch supports
 
+## Install
+
+```shell
+curl -sSLf https://raw.githubusercontent.com/octohelm/dagger/main/install.sh | sudo sh
+```
+
 ## Extra Commander
 
 ```shell
@@ -82,15 +88,9 @@ actions: ship: {
 		dest: "x"
 		images: {
 				for arch in ["amd64", "arm64"] {
-					"linux/\(arch)": _images."\(arch)".putput
+					"linux/\(arch)": _images."\(arch)".output
 				}
 		}
   }
 }
-```
-
-## Install
-
-```shell
-curl -sSLf https://raw.githubusercontent.com/octohelm/dagger/main/install.sh | sudo sh
 ```
