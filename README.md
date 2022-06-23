@@ -42,55 +42,7 @@ actions: ship: docker.#Push & {
 ### Heavy compiling project, with native buildkit, need to write to filesystem and use `core.#Source` to combine them
 
 ```shell
-BUILDKIT_HOST=tcp://buildkit-amd64:1234 dagger do build amd64
-BUILDKIT_HOST=tcp://buildkit-arm64:1234 dagger do build arm64
-dagger do ship
-```
-
-```cue
-client: filesystem:  {
-	"./build/output/amd64": write: contents: actions.build.amd64.output
-	"./build/output/arm64": write: contents: actions.build.arm64.output
-}
-
-actions: build: {
-	amd64:  docker.#Run & {}
-	arm64:  docker.#Run & {}
-}
-
-actions: ship: {
-	_compiled:  {
-		for arch in ["amd64", "arm64"] {
-            "\(arch)": core.#Source & {
-                path: "./build/output/\(arch)"
-            },	
-		}
-	}
-	
-	_images: {
-		for arch in ["amd64", "arm64"] {
-				"\(arch)": docker.#Build & {
-						steps: [
-								docker.#Pull & {
-										source: "",
-										platform: "linux/\(arch)"
-								},
-								docker.#Copy & {
-										contents: _compiled."\(arch)".output
-										dest: "/"
-								}
-						]
-				}	
-		}
-	}
-	
-	docker.#Push & {
-		dest: "x"
-		images: {
-				for arch in ["amd64", "arm64"] {
-					"linux/\(arch)": _images."\(arch)".output
-				}
-		}
-  }
-}
+BUILDKIT_HOST=tcp://buildkit-amd64:1234 dagger do ship push amd64
+BUILDKIT_HOST=tcp://buildkit-arm64:1234 dagger do ship push arm64
+dagger do ship push x
 ```
