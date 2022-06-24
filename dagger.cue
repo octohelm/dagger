@@ -7,6 +7,7 @@ import (
 
 	"github.com/innoai-tech/runtime/cuepkg/golang"
 	"github.com/innoai-tech/runtime/cuepkg/debian"
+	"github.com/innoai-tech/runtime/cuepkg/imagetool"
 )
 
 dagger.#Plan
@@ -31,8 +32,8 @@ client: filesystem: "build/output": write: contents: actions.go.archive.output
 
 actions: go: golang.#Project & {
 	mirror: {
-		linux: client.env.LINUX_MIRROR
-		pull:  client.env.CONTAINER_REGISTRY_PULL_PROXY
+		linux: "\(client.env.LINUX_MIRROR)"
+		pull:  "\(client.env.CONTAINER_REGISTRY_PULL_PROXY)"
 	}
 
 	auths: "ghcr.io": {
@@ -75,10 +76,17 @@ actions: go: golang.#Project & {
 		steps: [
 			debian.#InstallPackage & {
 				packages: {
-					"ca-certificates": _
-					"git":             _
+					"git": _
 				}
 			},
+			imagetool.#Shell & {
+				run: """
+					ln -s /dagger /bin/dagger
+					"""
+			},
 		]
+		config: {
+			entrypoint: ["/bin/sh"]
+		}
 	}
 }
