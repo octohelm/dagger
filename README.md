@@ -39,7 +39,7 @@ actions: ship: docker.#Push & {
 }
 ```
 
-### Heavy compiling project, with native buildkit, need to write to filesystem and use `core.#Source` to combine them
+### Heavy compiling project, with native buildkit, we could split to use different native buildkits, and combine them.
 
 ```shell
 BUILDKIT_HOST=tcp://buildkit-amd64:1234 dagger do ship push amd64
