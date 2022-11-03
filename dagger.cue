@@ -76,7 +76,9 @@ actions: go: golang.#Project & {
 		steps: [
 			debian.#InstallPackage & {
 				packages: {
-					"git": _
+					"git":  _
+					"wget": _
+					"curl": _
 				}
 			},
 			imagetool.#Shell & {
